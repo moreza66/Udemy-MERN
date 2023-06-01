@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const gravatar = require('gravatar'); // Gravatar is an npm package that allows us to associate an avatar with an email address
 const bcrypt = require('bcryptjs'); // Bcrypt is an npm package that allows us to encrypt passwords
+const jwt = require('jsonwebtoken'); // Jsonwebtoken is an npm package that allows us to create a token
+const config = require('config'); // Config is an npm package that allows us to access global variables
 
 const { check, validationResult } = require('express-validator');
 
@@ -57,9 +59,21 @@ router.post(
 
       await user.save(); // Save the user to the database
 
-      // Return jsonwebtoken
+      const payload = {
+        user: {
+          id: user.id,
+        },
+      };
 
-      res.send('User Registered');
+      jwt.sign(
+        payload,
+        config.get('jwtSecret'),
+        { expiresIn: 360000 },
+        (err, token) => {
+          if (err) throw err;
+          res.json({ token });
+        }
+      ); // Return jsonwebtoken
     } catch (err) {
       console.error(err.message);
       res.status(500).send('Server error');

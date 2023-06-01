@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const gravatar = require('gravatar'); // Gravatar is an npm package that allows us to associate an avatar with an email address
+const bcrypt = require('bcryptjs'); // Bcrypt is an npm package that allows us to encrypt passwords
+
 const { check, validationResult } = require('express-validator');
+
+const User = require('../../models/User'); // Bring in the User model
 
 // @route   POST api/users
 // @desc    Register user
@@ -16,13 +21,49 @@ router.post(
       'Please enter a password with 6 or more characters'
     ).isLength({ min: 6 }),
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req); // This is an array of errors
     if (!errors.isEmpty()) {
       // If there are errors
       return res.status(400).json({ errors: errors.array() });
     }
-    res.send('User route');
+
+    const { name, email, password } = req.body; // Destructure req.body
+
+    try {
+      let user = await User.findOne({ email }); // See if user exists
+      if (user) {
+        return res
+          .status(400)
+          .json({ errors: [{ msg: 'User already exists' }] });
+      }
+
+      const avatar = gravatar.url(email, {
+        s: '200', // Size
+        r: 'pg', // Rating
+        d: 'mm', // Default
+      });
+
+      user = new User({
+        name,
+        email,
+        avatar,
+        password,
+      });
+
+      const salt = await bcrypt.genSalt(10); // Generate a salt for the password
+
+      user.password = await bcrypt.hash(password, salt); // Encrypt the password
+
+      await user.save(); // Save the user to the database
+
+      // Return jsonwebtoken
+
+      res.send('User Registered');
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send('Server error');
+    }
   }
 );
 
